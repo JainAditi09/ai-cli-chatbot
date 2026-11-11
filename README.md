@@ -1,16 +1,139 @@
 # 🤖 Gemini Python CLI Chatbot
 
-A modular, terminal-based AI chatbot powered by Google Gemini and built with Python. Features real-time response streaming, multi-turn conversation memory, and live token & cost tracking.
+A modular, production-ready terminal chatbot powered by Google Gemini and built with Python. Features real-time token streaming, multi-turn conversational memory, command-driven session control, and live token & cost tracking.
 
 ---
 
-## ✨ Features
+## 📚 What This Project Covers
 
-- **⚡ Real-time Streaming**: Responses stream token-by-token directly into your terminal.
-- **🧠 Multi-turn Memory**: Retains conversation context across prompts for coherent dialogues.
-- **📊 Token & Cost Tracking**: Calculates input/output tokens and estimated dollar cost per request and for the overall session.
-- **🛠️ Built-in Commands**: Easily view history, reset conversation context, or check usage statistics on the fly.
-- **🔒 Secure Configuration**: Keeps API keys safe using environment variables via `.env`.
+This project is a hands-on, practical implementation of building an AI-powered conversational agent using the modern **Google GenAI SDK** (`google-genai`). Key concepts covered:
+
+1. **Google GenAI SDK Integration**:
+   - Initializing and configuring `genai.Client` with API key authentication and custom system prompts.
+   - Dynamic model selection via environment variables (defaulting to `gemini-3.8-flash`).
+
+2. **Real-time Response Streaming (`send_message_stream`)**:
+   - Yielding response chunks on-the-fly rather than blocking until the full text generates.
+   - Immediate terminal rendering using unbuffered stdout (`flush=True`) for a smooth typing effect.
+
+3. **Multi-Turn Context & History Management**:
+   - Maintaining persistent chat sessions across user prompts with `client.chats.create`.
+   - **Stream chunk aggregation**: Merging fragmented streaming chunks into clean, readable turn-by-turn dialogue.
+   - **Thought token filtering**: Automatically stripping internal reasoning blocks (`thought=True`) from modern Gemini models so only user-facing responses are preserved.
+
+4. **Token Analytics & Cost Calculation**:
+   - Extracting live prompt and candidate token counts from `chunk.usage_metadata`.
+   - Real-time cost estimation per request and cumulative session totals based on configurable per-1M token rates.
+
+5. **CLI Application Architecture**:
+   - Clean command-loop pattern with slash commands (`/history`, `/reset`, `/usage`, `/exit`).
+   - Graceful interrupt handling for `Ctrl+C` (`KeyboardInterrupt`) and `Ctrl+D` (`EOFError`).
+
+6. **Environment & Security Best Practices**:
+   - Safe API credential loading via `python-dotenv`.
+   - Complete `.env.example` template and pre-configured `.gitignore` to prevent credential leakage.
+
+---
+
+## 💡 Example Questions & Interactions
+
+Here is how you can interact with the chatbot in your terminal:
+
+### 1. Conceptual Coding Question
+```text
+You: Explain Python decorators in simple terms with an example.
+
+AI: A decorator in Python is a function that takes another function as an input,
+adds some behavior to it, and returns the modified function without changing the
+original function's code.
+
+Here is a practical example:
+
+def timer(func):
+    def wrapper(*args, **kwargs):
+        print("Starting task...")
+        result = func(*args, **kwargs)
+        print("Task finished!")
+        return result
+    return wrapper
+
+@timer
+def say_hello():
+    print("Hello, world!")
+
+say_hello()
+
+--- Request Usage ---
+Input tokens: 36
+Output tokens: 104
+Request cost: $0.00003390
+```
+
+### 2. Follow-Up Question (Multi-Turn Memory)
+```text
+You: Can you rewrite that so it preserves the original function's metadata?
+
+AI: Absolutely! You can use `functools.wraps` to preserve the original function's name, docstring, and annotations:
+
+from functools import wraps
+
+def timer(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        ...
+```
+
+### 3. Reviewing Conversation History (`/history`)
+```text
+You: /history
+
+USER: Explain Python decorators in simple terms with an example.
+
+AI: A decorator in Python is a function that takes another function as an input...
+
+USER: Can you rewrite that so it preserves the original function's metadata?
+
+AI: Absolutely! You can use `functools.wraps`...
+```
+
+### 4. Viewing Session Usage (`/usage`)
+```text
+You: /usage
+
+--- Session Usage ---
+Input tokens: 182
+Output tokens: 246
+Total cost: $0.00008745
+```
+
+### 5. Clearing Context (`/reset`)
+```text
+You: /reset
+Conversation history cleared.
+```
+
+---
+
+## 🏗️ Architecture & Component Flow
+
+```mermaid
+flowchart TD
+    User["User Terminal"] --> Main["main.py (CLI Loop)"]
+    
+    Main -->|Slash Command| HistCmd["/history /reset (history.py)"]
+    Main -->|Slash Command| UsageCmd["/usage (usage.py)"]
+    Main -->|User Prompt| Chatbot["chatbot.py (ask_ai)"]
+    
+    Chatbot -->|Active Session| History["history.py (get_chat)"]
+    History -->|API Call| Gemini["Google Gemini API (gemini-3.8-flash)"]
+    
+    Gemini -->|Stream Chunks| Chatbot
+    Chatbot -->|Live Print| User
+    Chatbot -->|Token Metadata| Usage["usage.py (track_usage)"]
+    
+    Config["config.py (.env)"] -.->|API Key & Model| History
+    Config -.->|Token Rates| Usage
+```
 
 ---
 
@@ -18,14 +141,15 @@ A modular, terminal-based AI chatbot powered by Google Gemini and built with Pyt
 
 ```text
 ai-cli-chatbot/
-├── chatbot.py          # Handles Gemini API streaming and response handling
-├── config.py           # Loads environment variables and pricing configuration
-├── history.py          # Manages chat session, system prompts, and conversation history
-├── usage.py            # Tracks token consumption and session costs
-├── main.py             # CLI entry point and interactive loop
-├── requirements.txt    # Project dependencies
-├── .env.example        # Template for required environment variables
-└── .gitignore          # Prevents sensitive files and virtual envs from being committed
+├── chatbot.py          # Gemini API streaming, response rendering, and error handling
+├── config.py           # Environment loading, API key validation, and token rates
+├── history.py          # Session initialization, history aggregation, and system prompt
+├── usage.py            # Token consumption calculation and cost reporting
+├── main.py             # CLI interactive loop, command dispatcher, and signal handling
+├── requirements.txt    # Python dependencies (google-genai, python-dotenv)
+├── .env.example        # Environment variable template
+├── .gitignore          # Security rules preventing secrets and venvs from being pushed
+└── README.md           # Documentation and guides
 ```
 
 ---
@@ -34,25 +158,25 @@ ai-cli-chatbot/
 
 ### Prerequisites
 
-- **Python 3.10+** installed
-- A **Gemini API Key** (Get one free at [Google AI Studio](https://aistudio.google.com/))
+- **Python 3.10+**
+- A **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/)
 
-### 1. Clone & Navigate to the Project
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/ai-cli-chatbot.git
+git clone https://github.com/JainAditi09/ai-cli-chatbot.git
 cd ai-cli-chatbot
 ```
 
-### 2. Set Up Virtual Environment
+### 2. Set Up a Virtual Environment
 
-On macOS/Linux:
+**On macOS / Linux:**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-On Windows:
+**On Windows:**
 ```cmd
 python -m venv venv
 venv\Scripts\activate
@@ -66,43 +190,34 @@ pip install -r requirements.txt
 
 ### 4. Configure Environment Variables
 
-Copy the example environment file:
+Create your `.env` file from the provided template:
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and add your Gemini API Key:
+Edit `.env` with your API key:
 ```env
 GEMINI_API_KEY=your_actual_gemini_api_key_here
 GEMINI_MODEL=gemini-3.8-flash
 
-# Optional: Set pricing per 1M tokens (USD)
+# Model rates in USD per 1,000,000 tokens
 INPUT_PRICE_PER_1M=0.075
 OUTPUT_PRICE_PER_1M=0.30
 ```
 
 ---
 
-## 💬 Usage
+## 💬 Command Reference
 
-Start the chatbot by running:
-
-```bash
-python main.py
-```
-
-### Available Commands
-
-| Command | Description |
+| Command | Action |
 | :--- | :--- |
-| `/history` | Displays formatted conversation history for the current session. |
-| `/reset` | Clears conversation memory and starts a fresh session. |
-| `/usage` | Shows total input/output tokens and accumulated session costs. |
-| `/exit` | Exits the chatbot application (or press `Ctrl+C`). |
+| `/history` | Displays clean, aggregated conversation history of the current session. |
+| `/reset` | Resets conversation context and clears memory for a fresh session. |
+| `/usage` | Displays cumulative session token counts and cost estimates. |
+| `/exit` | Exits the chatbot (or press `Ctrl+C` / `Ctrl+D`). |
 
 ---
 
 ## 📄 License
 
-This project is open-source and available under the [MIT License](LICENSE).
-
+This project is licensed under the [MIT License](LICENSE).
