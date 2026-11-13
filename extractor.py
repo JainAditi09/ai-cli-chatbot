@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
+import time
 from typing import Any, Callable, Generic, List, Optional, Type, TypeVar
 from pydantic import BaseModel, ValidationError
 
@@ -69,16 +70,30 @@ class MessyTextExtractor:
         else:
             self.client = None
 
-    def _call_model(self, prompt: str) -> str:
-        """Invokes the LLM or custom generator function and returns raw response text."""
+    def _call_model(self, prompt: str, transient_retries: int = 3) -> str:
+        """Invokes the LLM or custom generator function with backoff for transient server errors (503/429)."""
         if self.generator_func is not None:
             return self.generator_func(prompt)
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-        )
-        return response.text or ""
+        for attempt in range(1, transient_retries + 1):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                )
+                return response.text or ""
+            except Exception as e:
+                err_str = str(e)
+                # Catch 503 UNAVAILABLE, 429 RESOURCE_EXHAUSTED, or high-demand spikes
+                is_transient = any(
+                    code in err_str
+                    for code in ("503", "429", "UNAVAILABLE", "ResourceExhausted", "high demand")
+                )
+                if is_transient and attempt < transient_retries:
+                    wait_time = attempt * 2  # 2s, 4s
+                    time.sleep(wait_time)
+                    continue
+                raise e
 
     def extract(
         self,

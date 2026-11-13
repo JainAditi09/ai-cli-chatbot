@@ -143,3 +143,4 @@ class TaskItem(BaseModel):
         if cleaned not in ("Low", "Medium", "High"):
             raise ValueError(f"Priority must be 'Low', 'Medium', or 'High', got '{v}'")
         return cleaned
+
