@@ -24,7 +24,7 @@ def handle_extract():
         print("No text provided. Returning to main chat.")
         return
 
-    print("\nExtracting and validating Pydantic object...")
+    print("\nSending prompt to Gemini API (gemini-3.8-flash)...")
     extractor = MessyTextExtractor()
     result = extractor.extract(raw_text, schema_class=Expense)
 

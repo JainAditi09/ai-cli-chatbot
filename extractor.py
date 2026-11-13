@@ -65,13 +65,17 @@ class MessyTextExtractor:
                 self.client = client
             else:
                 from google import genai
+                from google.genai import types
 
-                self.client = genai.Client(api_key=API_KEY)
+                self.client = genai.Client(
+                    api_key=API_KEY,
+                    http_options=types.HttpOptions(timeout=20.0),
+                )
         else:
             self.client = None
 
     def _call_model(self, prompt: str, transient_retries: int = 3) -> str:
-        """Invokes the LLM or custom generator function with backoff for transient server errors (503/429)."""
+        """Invokes the LLM or custom generator function with backoff for transient server errors (503/504/429)."""
         if self.generator_func is not None:
             return self.generator_func(prompt)
 
@@ -84,13 +88,24 @@ class MessyTextExtractor:
                 return response.text or ""
             except Exception as e:
                 err_str = str(e)
-                # Catch 503 UNAVAILABLE, 429 RESOURCE_EXHAUSTED, or high-demand spikes
+                # Catch 503 UNAVAILABLE, 504 DEADLINE_EXCEEDED, 429 RESOURCE_EXHAUSTED, or high-demand spikes
                 is_transient = any(
                     code in err_str
-                    for code in ("503", "429", "UNAVAILABLE", "ResourceExhausted", "high demand")
+                    for code in (
+                        "503",
+                        "504",
+                        "429",
+                        "UNAVAILABLE",
+                        "ResourceExhausted",
+                        "high demand",
+                        "DEADLINE_EXCEEDED",
+                    )
                 )
                 if is_transient and attempt < transient_retries:
-                    wait_time = attempt * 2  # 2s, 4s
+                    wait_time = attempt * 3  # 3s, 6s
+                    print(
+                        f"\n[Gemini servers experiencing high demand (503/504). Retrying in {wait_time}s... (Attempt {attempt}/{transient_retries})]"
+                    )
                     time.sleep(wait_time)
                     continue
                 raise e
