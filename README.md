@@ -146,7 +146,15 @@ ai-cli-chatbot/
 ├── history.py          # Session initialization, history aggregation, and system prompt
 ├── usage.py            # Token consumption calculation and cost reporting
 ├── main.py             # CLI interactive loop, command dispatcher, and signal handling
-├── requirements.txt    # Python dependencies (google-genai, python-dotenv)
+├── schemas.py          # Day 2: Pydantic v2 schemas and smart field validators
+├── repair.py           # Day 2: Zero-cost deterministic JSON sanitization engine
+├── prompt_templates.py # Day 2: Structured XML prompting and error reflection
+├── extractor.py        # Day 2: MessyTextExtractor with self-healing retry loop
+├── demo_day2.py        # Day 2: Interactive beginner walkthrough script
+├── day2.md             # Day 2: In-depth tutorial, architecture, and interview drills
+├── tests/
+│   └── test_day2.py    # Day 2: 20 unit tests for schemas, repairs, and retries
+├── requirements.txt    # Python dependencies (google-genai, python-dotenv, pydantic)
 ├── .env.example        # Environment variable template
 ├── .gitignore          # Security rules preventing secrets and venvs from being pushed
 └── README.md           # Documentation and guides
@@ -214,7 +222,21 @@ OUTPUT_PRICE_PER_1M=0.30
 | `/history` | Displays clean, aggregated conversation history of the current session. |
 | `/reset` | Resets conversation context and clears memory for a fresh session. |
 | `/usage` | Displays cumulative session token counts and cost estimates. |
+| `/extract` | (Day 2) Extracts validated Pydantic structured data from messy text. |
 | `/exit` | Exits the chatbot (or press `Ctrl+C` / `Ctrl+D`). |
+
+---
+
+## 📑 Day 2: Structured Outputs & Validation
+
+Day 2 extends this CLI with a resilient, self-healing structured data extraction engine.
+
+- **Schemas & Validators**: Clean Pydantic v2 models (`Expense`, `TaskItem`) with automatic normalization of currency symbols (`$` -> `USD`) and dates.
+- **Deterministic Repair**: Zero-cost regex engine that strips markdown fences, removes trailing commas, fixes single quotes, and normalizes Python literals before hitting the LLM.
+- **Self-Healing Retry**: Catches `ValidationError` and prompts Gemini to fix only its mistake.
+- **Interactive Demo**: Run `python demo_day2.py` for a step-by-step walkthrough.
+- **Test Suite**: Run `python -m unittest discover tests` (20 unit tests).
+- **Full Guide & Interview Drills**: See [day2.md](file:///Users/aditijain/Documents/AI/ai-cli-chatbot/day2.md).
 
 ---
 
